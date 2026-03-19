@@ -15,6 +15,7 @@ import DetailsView from "./views/DetailsView.jsx";
 import BibliographyView from "./views/BibliographyView.jsx";
 
 function App() {
+  const hasLocalSavedDataRef = useRef(false);
   const [currentView, setCurrentView] = useState(() => {
     try {
       return localStorage.getItem("civicaView") || "home";
@@ -34,6 +35,7 @@ function App() {
   const [appData, setAppData] = useState(() => {
     try {
       const saved = localStorage.getItem("civicaAppData");
+      hasLocalSavedDataRef.current = Boolean(saved);
       return saved ? JSON.parse(saved) : INITIAL_DATA;
     } catch (e) {
       console.error("Failed to load local data", e);
@@ -88,6 +90,7 @@ function App() {
   const [isCloudReady, setIsCloudReady] = useState(false);
   const isApplyingRemoteRef = useRef(false);
   const saveTimeoutRef = useRef(null);
+  const pendingAssetUploadsRef = useRef(new Set());
   const docRef = useRef(doc(db, "appData", "main"));
   const bibliographyItems = Array.isArray(appData.Bibliografie) ? appData.Bibliografie : [];
   
@@ -99,8 +102,85 @@ function App() {
     return { ...data, _meta: { ...(data && data._meta ? data._meta : {}), updatedAt } };
   };
 
+  const isStructuredAppData = (data) => {
+    return Boolean(data) && typeof data === "object" && (
+      Array.isArray(data.Politica) ||
+      Array.isArray(data.Drepturi) ||
+      Array.isArray(data.Bibliografie) ||
+      Array.isArray(data.Quiz) ||
+      Array.isArray(data.Media)
+    );
+  };
+
+  const getDataScore = (data) => {
+    if (!isStructuredAppData(data)) return 0;
+    try {
+      return JSON.stringify(data).length;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+  const pickMoreCompleteData = (left, right) => {
+    const leftUpdatedAt = left?._meta?.updatedAt || 0;
+    const rightUpdatedAt = right?._meta?.updatedAt || 0;
+    if (leftUpdatedAt !== rightUpdatedAt) {
+      return leftUpdatedAt > rightUpdatedAt ? left : right;
+    }
+    return getDataScore(left) >= getDataScore(right) ? left : right;
+  };
+
+  const loadBundledPresentationBackup = async () => {
+    try {
+      const response = await fetch("/presentation-backup.json", { cache: "no-store" });
+      if (!response.ok) return null;
+      const json = await response.json();
+      return isStructuredAppData(json) ? json : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
   const isLocalAsset = (value) => {
     return typeof value === "string" && (value.startsWith("data:") || value.startsWith("blob:"));
+  };
+
+  const getFileExtensionFromMime = (mimeType) => {
+    if (!mimeType) return "bin";
+    const [, subtype = "bin"] = mimeType.split("/");
+    return subtype.split("+")[0].toLowerCase();
+  };
+
+  const uploadLocalAsset = async (assetUrl, folder, assetId) => {
+    const response = await fetch(assetUrl);
+    const blob = await response.blob();
+    const extension = getFileExtensionFromMime(blob.type);
+    const storageRef = ref(storage, `${folder}/${assetId}-${Date.now()}.${extension}`);
+    await uploadBytes(storageRef, blob, blob.type ? { contentType: blob.type } : undefined);
+    return getDownloadURL(storageRef);
+  };
+
+  const replaceAssetUrlInData = (data, cardId, field, nextUrl, localFlagField, tempFlagField) => {
+    let changed = false;
+    const nextData = { ...data };
+    Object.keys(nextData).forEach((tabKey) => {
+      if (!Array.isArray(nextData[tabKey])) return;
+      nextData[tabKey] = nextData[tabKey].map((section) => {
+        if (!section || !Array.isArray(section.items)) return section;
+        let sectionChanged = false;
+        const nextItems = section.items.map((item) => {
+          if (!item || item.id !== cardId) return item;
+          sectionChanged = true;
+          changed = true;
+          const nextItem = { ...item, [field]: nextUrl };
+          if (localFlagField in nextItem) nextItem[localFlagField] = false;
+          if (tempFlagField in nextItem) nextItem[tempFlagField] = false;
+          return nextItem;
+        });
+        return sectionChanged ? { ...section, items: nextItems } : section;
+      });
+    });
+    return changed ? nextData : data;
   };
 
   const mergeRemoteWithLocalAssets = (remoteData, localData) => {
@@ -168,32 +248,57 @@ function App() {
     let canceled = false;
     const migrate = async () => {
       try {
-        const localUpdatedAt = appData?._meta?.updatedAt || 0;
+        const bundledBackup = await loadBundledPresentationBackup();
+        let bestLocalCandidate = appData;
+        if (!hasLocalSavedDataRef.current && bundledBackup) {
+          bestLocalCandidate = pickMoreCompleteData(bestLocalCandidate, bundledBackup);
+        }
+
+        const localUpdatedAt = bestLocalCandidate?._meta?.updatedAt || 0;
         const remoteSnap = await getDoc(docRef.current);
         if (!remoteSnap.exists()) {
-          const payload = sanitizeForFirestore(makePersistableData(appData));
+          if (bestLocalCandidate !== appData) {
+            isApplyingRemoteRef.current = true;
+            setAppData(bestLocalCandidate);
+            isApplyingRemoteRef.current = false;
+          }
+          const payload = sanitizeForFirestore(makePersistableData(bestLocalCandidate));
           await setDoc(docRef.current, { payload }, { merge: true });
         } else {
           const remotePayload = remoteSnap.data()?.payload;
           const remoteUpdatedAt = remotePayload?._meta?.updatedAt || 0;
-          const localSize = JSON.stringify(appData || {}).length;
+          const localSize = JSON.stringify(bestLocalCandidate || {}).length;
           const remoteSize = JSON.stringify(remotePayload || {}).length;
           if (remoteUpdatedAt > localUpdatedAt) {
             isApplyingRemoteRef.current = true;
-            const merged = mergeRemoteWithLocalAssets(remotePayload, appData);
+            const merged = mergeRemoteWithLocalAssets(remotePayload, bestLocalCandidate);
             setAppData(merged);
             isApplyingRemoteRef.current = false;
           } else if (localUpdatedAt > remoteUpdatedAt) {
-            const payload = sanitizeForFirestore(makePersistableData(appData));
+            if (bestLocalCandidate !== appData) {
+              isApplyingRemoteRef.current = true;
+              setAppData(bestLocalCandidate);
+              isApplyingRemoteRef.current = false;
+            }
+            const payload = sanitizeForFirestore(makePersistableData(bestLocalCandidate));
             await setDoc(docRef.current, { payload }, { merge: true });
           } else if (remoteSize > localSize) {
             isApplyingRemoteRef.current = true;
-            const merged = mergeRemoteWithLocalAssets(remotePayload, appData);
+            const merged = mergeRemoteWithLocalAssets(remotePayload, bestLocalCandidate);
             setAppData(merged);
             isApplyingRemoteRef.current = false;
           } else if (localSize > remoteSize) {
-            const payload = sanitizeForFirestore(makePersistableData(appData));
+            if (bestLocalCandidate !== appData) {
+              isApplyingRemoteRef.current = true;
+              setAppData(bestLocalCandidate);
+              isApplyingRemoteRef.current = false;
+            }
+            const payload = sanitizeForFirestore(makePersistableData(bestLocalCandidate));
             await setDoc(docRef.current, { payload }, { merge: true });
+          } else if (bestLocalCandidate !== appData) {
+            isApplyingRemoteRef.current = true;
+            setAppData(bestLocalCandidate);
+            isApplyingRemoteRef.current = false;
           }
         }
       } catch (e) {
@@ -228,6 +333,60 @@ function App() {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
+  }, [appData, isCloudReady]);
+
+  useEffect(() => {
+    if (!isCloudReady) return;
+
+    const localAssets = [];
+    Object.keys(appData || {}).forEach((tabKey) => {
+      const sections = appData?.[tabKey];
+      if (!Array.isArray(sections)) return;
+      sections.forEach((section) => {
+        (section.items || []).forEach((item) => {
+          if (isLocalAsset(item?.image_url)) {
+            localAssets.push({
+              cardId: item.id,
+              field: "image_url",
+              folder: "media/images",
+              localFlagField: "isLocalImage",
+              tempFlagField: "isTempImage",
+              assetUrl: item.image_url
+            });
+          }
+          if (isLocalAsset(item?.video_url)) {
+            localAssets.push({
+              cardId: item.id,
+              field: "video_url",
+              folder: "media/videos",
+              localFlagField: "isLocalVideo",
+              tempFlagField: "isTempVideo",
+              assetUrl: item.video_url
+            });
+          }
+        });
+      });
+    });
+
+    localAssets.forEach(({ cardId, field, folder, localFlagField, tempFlagField, assetUrl }) => {
+      const uploadKey = `${cardId}:${field}`;
+      if (pendingAssetUploadsRef.current.has(uploadKey)) return;
+      pendingAssetUploadsRef.current.add(uploadKey);
+
+      uploadLocalAsset(assetUrl, folder, cardId)
+        .then((downloadUrl) => {
+          setAppData((prev) => replaceAssetUrlInData(prev, cardId, field, downloadUrl, localFlagField, tempFlagField));
+          if (typeof assetUrl === "string" && assetUrl.startsWith("blob:")) {
+            try { URL.revokeObjectURL(assetUrl); } catch (e) { /* no-op */ }
+          }
+        })
+        .catch((error) => {
+          console.error(`Failed to upload ${field} for card ${cardId}`, error);
+        })
+        .finally(() => {
+          pendingAssetUploadsRef.current.delete(uploadKey);
+        });
+    });
   }, [appData, isCloudReady]);
 
   useEffect(() => {
@@ -292,9 +451,20 @@ function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `civica-data-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.download = "presentation-backup.json";
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleForceCloudSync = async () => {
+    try {
+      const payload = sanitizeForFirestore(makePersistableData(appData));
+      await setDoc(docRef.current, { payload }, { merge: true });
+      alert("Sincronizarea in cloud a fost finalizata.");
+    } catch (e) {
+      console.error("Failed to force cloud sync", e);
+      alert("Sincronizarea in cloud a esuat. Pentru prezentare, foloseste si backupul JSON local.");
+    }
   };
 
   const handleRestoreLocalAssets = () => {
@@ -371,19 +541,13 @@ function App() {
     });
   };
 
-  const uploadVideoFile = async (file) => {
-    const fileId = generateId();
-    const storageRef = ref(storage, `media/videos/${fileId}-${file.name}`);
-    await uploadBytes(storageRef, file);
-    return getDownloadURL(storageRef);
-  };
-
   const handleUploadMedia = async (file, sectionIndex = 0) => {
     if (!file) return;
     const safeIndex = Number.isFinite(Number(sectionIndex)) ? Number(sectionIndex) : 0;
+    const mediaCardId = generateId();
     const addMediaCard = (videoUrl, isTempVideo = false) => {
       if (!videoUrl) return;
-      const newMediaCard = { id: generateId(), type: "media", nume: file.name.replace(/\.[^/.]+$/, ""), video_url: videoUrl, comentariu_filosofic: `Fisier: ${file.name}`, isLocalVideo: true, isTempVideo };
+      const newMediaCard = { id: mediaCardId, type: "media", nume: file.name.replace(/\.[^/.]+$/, ""), video_url: videoUrl, comentariu_filosofic: `Fisier: ${file.name}`, isLocalVideo: true, isTempVideo };
       setAppData(prev => {
         const newData = { ...prev };
         if (!newData["Media"]) newData["Media"] = [{ id: "sec-media", title: "Media", description: "", items: [] }];
@@ -408,23 +572,6 @@ function App() {
         alert("Nu am putut citi fisierul video. Incearca un fisier mai mic.");
       };
       reader.readAsDataURL(file);
-    }
-
-    try {
-      const videoUrl = await uploadVideoFile(file);
-      if (videoUrl) {
-        const newMediaCard = { id: generateId(), type: "media", nume: file.name.replace(/\.[^/.]+$/, ""), video_url: videoUrl, comentariu_filosofic: `Fisier: ${file.name}`, isLocalVideo: false, isTempVideo: false };
-        setAppData(prev => {
-          const newData = { ...prev };
-          if (!newData["Media"]) newData["Media"] = [{ id: "sec-media", title: "Media", description: "", items: [] }];
-          if (newData["Media"].length === 0) newData["Media"].push({ id: "sec-media", title: "Media", description: "", items: [] });
-          const targetIndex = Math.min(Math.max(safeIndex, 0), newData["Media"].length - 1);
-          newData["Media"][targetIndex].items.push(newMediaCard);
-          return newData;
-        });
-      }
-    } catch (err) {
-      console.error("Failed to upload video to Firebase Storage", err);
     }
   };
 
@@ -507,6 +654,7 @@ function App() {
         onExport={handleExportData}
         onImport={handleImportData}
         onRestoreLocalAssets={handleRestoreLocalAssets}
+        onForceCloudSync={handleForceCloudSync}
       />
       <style>{`
         @keyframes fadeIn { 

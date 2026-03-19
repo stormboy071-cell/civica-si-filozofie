@@ -28,6 +28,16 @@ const Card = ({ data, id, onUpdate, onDelete, allowEdit, allowDelete, onReadMore
     onUpdate({ ...data, ...partial });
   };
 
+  const shouldRenderVideoTag = (url) => {
+    if (typeof url !== "string") return false;
+    return (
+      url.startsWith("blob:") ||
+      url.startsWith("data:video") ||
+      url.includes("firebasestorage.googleapis.com") ||
+      /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url)
+    );
+  };
+
   const isCorrect = selectedOption === data.correctAnswer;
   const isAnswered = selectedOption !== null;
 
@@ -97,7 +107,11 @@ const Card = ({ data, id, onUpdate, onDelete, allowEdit, allowDelete, onReadMore
   const renderMedia = () => (
     <>
       <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden", backgroundColor: "#000", borderBottom: `1px solid ${theme.borderColor}` }}>
-        {data.isLocalVideo ? <video src={data.video_url} controls style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} /> : <iframe src={data.video_url} title={data.nume} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }} />}
+        {shouldRenderVideoTag(data.video_url) ? (
+          <video src={data.video_url} controls style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} />
+        ) : (
+          <iframe src={data.video_url} title={data.nume} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }} />
+        )}
       </div>
       <div style={{ padding: "20px", flexGrow: 1 }}>
         <h3 style={{ margin: "0 0 6px 0", fontSize: "18px", color: theme.textPrimary, fontFamily: "'Playfair Display', serif", fontWeight: "700" }}>{data.nume}</h3>

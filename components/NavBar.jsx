@@ -1,9 +1,9 @@
-import React, { useState, useRef } from "react";
+ï»¿import React, { useState, useRef } from "react";
 import ToggleSwitch from "./ToggleSwitch.jsx";
 import { NAV_ITEMS, getTabLabel, slugify, makeInputStyle } from "../utils.js";
 import { ACCENTS } from "../themes.js";
 
-const NavBar = ({ currentView, onViewChange, isDarkMode, setIsDarkMode, isDevMode, setIsDevMode, accentKey, setAccentKey, theme, appData, activeTab, openSectionIndex, setOpenSectionIndex, searchQuery, setSearchQuery, onExport, onImport, onRestoreLocalAssets }) => {
+const NavBar = ({ currentView, onViewChange, isDarkMode, setIsDarkMode, isDevMode, setIsDevMode, accentKey, setAccentKey, theme, appData, activeTab, openSectionIndex, setOpenSectionIndex, searchQuery, setSearchQuery, onExport, onImport, onRestoreLocalAssets, onForceCloudSync }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTocOpen, setIsTocOpen] = useState(false);
   const fileInputRef = useRef(null);
@@ -94,7 +94,7 @@ const NavBar = ({ currentView, onViewChange, isDarkMode, setIsDarkMode, isDevMod
                                                   onMouseEnter={(e) => e.currentTarget.style.opacity = "0.7"}
                                                   onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
                                               >
-                                                  • {item.nume}
+                                                  â€¢ {item.nume}
                                               </button>
                                           </li>
                                       ))}
@@ -165,7 +165,7 @@ const NavBar = ({ currentView, onViewChange, isDarkMode, setIsDarkMode, isDevMod
                   fontSize: "14px"
                 }}
               >
-                ×
+                Ã—
               </button>
             )}
           </div>
@@ -225,13 +225,19 @@ const NavBar = ({ currentView, onViewChange, isDarkMode, setIsDarkMode, isDevMod
                         onClick={() => { onExport(); setIsSettingsOpen(false); }}
                         style={{ display: "block", width: "100%", padding: "8px", marginBottom: "8px", backgroundColor: theme.sectionBg, border: `1px solid ${theme.borderColor}`, borderRadius: "6px", color: theme.textPrimary, cursor: "pointer", fontSize: "13px", textAlign: "left" }}
                     >
-                        Exporta Date (JSON)
+                        Exporta Backup Prezentare
                     </button>
                     <button 
                         onClick={() => fileInputRef.current?.click()}
                         style={{ display: "block", width: "100%", padding: "8px", backgroundColor: theme.sectionBg, border: `1px solid ${theme.borderColor}`, borderRadius: "6px", color: theme.textPrimary, cursor: "pointer", fontSize: "13px", textAlign: "left" }}
                     >
                         Importa Date
+                    </button>
+                    <button 
+                        onClick={() => { onForceCloudSync(); setIsSettingsOpen(false); }}
+                        style={{ display: "block", width: "100%", padding: "8px", marginTop: "8px", backgroundColor: theme.sectionBg, border: `1px solid ${theme.borderColor}`, borderRadius: "6px", color: theme.textPrimary, cursor: "pointer", fontSize: "13px", textAlign: "left" }}
+                    >
+                        Forteaza Sync in Cloud
                     </button>
                     <button 
                         onClick={() => { onRestoreLocalAssets(); setIsSettingsOpen(false); }}
