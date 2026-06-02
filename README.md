@@ -6,25 +6,25 @@ Aplicatie web dezvoltata cu React si Vite pentru organizarea si prezentarea cont
 
 Adauga aici linkul catre versiunea live dupa deploy:
 
-`https://exemplu-vercel-sau-netlify.app`
+`https://civica-si-filozofie.web.app`
 
 ## Functionalitati
 
 - navigare pe categorii tematice precum Politica, Drepturi, Bibliografie, Quiz si Media
-- cautare globala in continutul aplicatiei
+- filtrare rapida in categoria curenta
 - mod dezvoltator pentru adaugare, editare si stergere de continut
 - pagina separata pentru documentatie extinsa si eseuri
 - persistenta locala prin `localStorage`
-- sincronizare in cloud prin Firebase Firestore
-- upload media prin Firebase Storage
+- sincronizare in cloud prin Supabase
+- upload media prin Supabase Storage
 - interfata tematizabila, cu mod light/dark si accente vizuale personalizabile
 
 ## Stack Tehnologic
 
 - React 19
 - Vite
-- Firebase Firestore
-- Firebase Storage
+- Supabase Database
+- Supabase Storage
 - JavaScript
 - CSS inline styling
 
@@ -66,7 +66,7 @@ components/     componente reutilizabile UI
 views/          pagini si ecrane principale
 data/           date initiale ale aplicatiei
 index.jsx       punctul principal de intrare
-firebase.js     configurare Firebase
+supabase.js     configurare Supabase
 themes.js       teme si accente vizuale
 utils.js        functii utilitare
 ```
@@ -88,13 +88,20 @@ utils.js        functii utilitare
 
 ## Publicare
 
-Proiectul poate fi publicat usor pe:
+Proiectul poate fi publicat pe Firebase Hosting, iar datele si fisierele folosesc Supabase.
 
-- Vercel
-- Netlify
-- Firebase Hosting
+Auto deploy-ul este pregatit prin GitHub Actions:
 
-Recomandare pentru portofoliu: codul in GitHub si deploy automat din GitHub in Vercel sau Netlify.
+- orice `push` in `main` publica versiunea live
+- orice `pull request` primeste un preview link temporar
+
+Configurarea finala pentru secretul GitHub este descrisa in:
+
+`AUTO_DEPLOY_SETUP.md`
+
+Configurarea backend-ului gratuit este descrisa in:
+
+`SUPABASE_SETUP.md`
 
 ## Autor
 
