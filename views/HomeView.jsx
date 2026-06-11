@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import AccordionItem from "../components/AccordionItem.jsx";
-import { getAppSettings, getSectionContentType, getTabLabel, getTabs, makeInputStyle } from "../utils.js";
+import {
+  getAppSettings,
+  getSectionContentType,
+  getTabLabel,
+  getTabs,
+  makeInputStyle,
+} from "../utils.js";
 
 const HomeView = ({
   data,
@@ -17,6 +23,7 @@ const HomeView = ({
   onUpdateSection,
   onDeleteSection,
   onReorderSection,
+  onReorderTab,
   onUpdateAppSettings,
   onUpdateTabLabel,
   onAddTab,
@@ -59,12 +66,25 @@ const HomeView = ({
         }}
       >
         <div style={{ marginBottom: "16px" }}>
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
         </div>
-        <h3 style={{ fontSize: "18px", fontWeight: "700", marginBottom: "8px" }}>{label}</h3>
+        <h3
+          style={{ fontSize: "18px", fontWeight: "700", marginBottom: "8px" }}
+        >
+          {label}
+        </h3>
       </div>
     );
   };
@@ -109,13 +129,26 @@ const HomeView = ({
           }}
         />
         <div style={{ marginBottom: "16px" }}>
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
             <line x1="12" y1="8" x2="12" y2="16"></line>
             <line x1="8" y1="12" x2="16" y2="12"></line>
           </svg>
         </div>
-        <h3 style={{ fontSize: "18px", fontWeight: "700", marginBottom: "8px" }}>Adaugă video</h3>
+        <h3
+          style={{ fontSize: "18px", fontWeight: "700", marginBottom: "8px" }}
+        >
+          Adaugă video
+        </h3>
       </div>
     );
   };
@@ -167,7 +200,10 @@ const HomeView = ({
   const displaySections = hasQuery
     ? currentSections
         .map((section, sIdx) => {
-          const sectionHaystack = normalizeField(section.title) + " " + normalizeField(section.description);
+          const sectionHaystack =
+            normalizeField(section.title) +
+            " " +
+            normalizeField(section.description);
           if (sectionHaystack.includes(normalizedQuery)) {
             return { ...section, _originalIndex: sIdx };
           }
@@ -176,10 +212,17 @@ const HomeView = ({
           return { ...section, items: filteredItems, _originalIndex: sIdx };
         })
         .filter(Boolean)
-    : currentSections.map((section, sIdx) => ({ ...section, _originalIndex: sIdx }));
+    : currentSections.map((section, sIdx) => ({
+        ...section,
+        _originalIndex: sIdx,
+      }));
 
-  const totalMatches = displaySections.reduce((sum, section) => sum + (section.items?.length || 0), 0);
+  const totalMatches = displaySections.reduce(
+    (sum, section) => sum + (section.items?.length || 0),
+    0,
+  );
   const [draggingIndex, setDraggingIndex] = useState(null);
+  const [draggingTabIndex, setDraggingTabIndex] = useState(null);
 
   const handleCreateSection = (event) => {
     event.preventDefault();
@@ -195,6 +238,19 @@ const HomeView = ({
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(sectionIndex));
     setDraggingIndex(sectionIndex);
+  };
+
+  const handleTabDragStart = (event, tabIndex) => {
+    if (!isDevMode) return;
+    event.dataTransfer.effectAllowed = "move";
+    // use a custom key so we don't mix with section drags
+    try {
+      event.dataTransfer.setData("text/tab", String(tabIndex));
+    } catch (e) {
+      // fallback
+      event.dataTransfer.setData("text/plain", `tab:${tabIndex}`);
+    }
+    setDraggingTabIndex(tabIndex);
   };
 
   const handleDragEnd = (event) => {
@@ -223,6 +279,33 @@ const HomeView = ({
     if (!cleanLabel) return;
     onAddTab(cleanLabel);
     setNewTabLabel("");
+  };
+
+  const handleTabDrop = (event, targetIndex) => {
+    if (!isDevMode || !onReorderTab) return;
+    event.preventDefault();
+    let sourceIndex = null;
+    try {
+      const v = event.dataTransfer.getData("text/tab");
+      if (v) sourceIndex = Number(v);
+    } catch (e) {}
+    if (sourceIndex === null || !Number.isFinite(sourceIndex)) {
+      // try fallback
+      const plain = event.dataTransfer.getData("text/plain") || "";
+      const m = plain.match(/tab:(\d+)/);
+      if (m) sourceIndex = Number(m[1]);
+    }
+    if (!Number.isFinite(sourceIndex)) return;
+    if (sourceIndex === targetIndex) return;
+    onReorderTab(sourceIndex, targetIndex);
+    setDraggingTabIndex(null);
+  };
+
+  const handleTabDragEnd = (event) => {
+    setDraggingTabIndex(null);
+    try {
+      event.currentTarget.style.opacity = "";
+    } catch (e) {}
   };
 
   return (
@@ -260,10 +343,22 @@ const HomeView = ({
           {isDevMode ? (
             <input
               value={appSettings.heroKicker}
-              onChange={(e) => onUpdateAppSettings({ heroKicker: e.target.value })}
-              style={{ ...inputStyle, width: "260px", textAlign: "center", color: theme.accent, fontSize: "13px", fontWeight: "800", textTransform: "uppercase" }}
+              onChange={(e) =>
+                onUpdateAppSettings({ heroKicker: e.target.value })
+              }
+              style={{
+                ...inputStyle,
+                width: "260px",
+                textAlign: "center",
+                color: theme.accent,
+                fontSize: "13px",
+                fontWeight: "800",
+                textTransform: "uppercase",
+              }}
             />
-          ) : appSettings.heroKicker}
+          ) : (
+            appSettings.heroKicker
+          )}
         </div>
         {isDevMode ? (
           <textarea
@@ -300,7 +395,15 @@ const HomeView = ({
             {appSettings.heroTitle}
           </h1>
         )}
-        <div style={{ width: "72px", height: "4px", backgroundColor: theme.accent, margin: "0 auto 22px auto", borderRadius: "999px" }}></div>
+        <div
+          style={{
+            width: "72px",
+            height: "4px",
+            backgroundColor: theme.accent,
+            margin: "0 auto 22px auto",
+            borderRadius: "999px",
+          }}
+        ></div>
         <div
           className="civica-hero-sub"
           style={{
@@ -315,11 +418,22 @@ const HomeView = ({
           {isDevMode ? (
             <textarea
               value={appSettings.heroSubtitle}
-              onChange={(e) => onUpdateAppSettings({ heroSubtitle: e.target.value })}
+              onChange={(e) =>
+                onUpdateAppSettings({ heroSubtitle: e.target.value })
+              }
               rows={3}
-              style={{ ...inputStyle, width: "100%", textAlign: "center", fontSize: "16px", lineHeight: "1.6", resize: "vertical" }}
+              style={{
+                ...inputStyle,
+                width: "100%",
+                textAlign: "center",
+                fontSize: "16px",
+                lineHeight: "1.6",
+                resize: "vertical",
+              }}
             />
-          ) : appSettings.heroSubtitle}
+          ) : (
+            appSettings.heroSubtitle
+          )}
         </div>
 
         <div
@@ -339,11 +453,21 @@ const HomeView = ({
           {isDevMode ? (
             <textarea
               value={appSettings.filterNote}
-              onChange={(e) => onUpdateAppSettings({ filterNote: e.target.value })}
+              onChange={(e) =>
+                onUpdateAppSettings({ filterNote: e.target.value })
+              }
               rows={2}
-              style={{ ...inputStyle, width: "100%", fontSize: "14px", lineHeight: "1.5", resize: "vertical" }}
+              style={{
+                ...inputStyle,
+                width: "100%",
+                fontSize: "14px",
+                lineHeight: "1.5",
+                resize: "vertical",
+              }}
             />
-          ) : appSettings.filterNote}
+          ) : (
+            appSettings.filterNote
+          )}
         </div>
 
         {showOnboarding && (
@@ -360,31 +484,87 @@ const HomeView = ({
               boxShadow: theme.shadow,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-              <div style={{ fontWeight: "700", color: theme.textPrimary, fontSize: "16px" }}>Ghid rapid de început</div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "700",
+                  color: theme.textPrimary,
+                  fontSize: "16px",
+                }}
+              >
+                Ghid rapid de început
+              </div>
               <button
                 onClick={onDismissOnboarding}
-                style={{ border: "none", background: "none", color: theme.textSecondary, cursor: "pointer", fontSize: "13px" }}
+                style={{
+                  border: "none",
+                  background: "none",
+                  color: theme.textSecondary,
+                  cursor: "pointer",
+                  fontSize: "13px",
+                }}
               >
                 Am înțeles
               </button>
             </div>
-            <div style={{ marginTop: "10px", color: theme.textSecondary, fontSize: "14px", lineHeight: "1.6" }}>
+            <div
+              style={{
+                marginTop: "10px",
+                color: theme.textSecondary,
+                fontSize: "14px",
+                lineHeight: "1.6",
+              }}
+            >
               1. Alege o categorie din taburi și deschide secțiunile.
               <br />
               2. Folosește filtrul din bara de sus pentru a găsi rapid concepte.
               <br />
-              3. Activează „Mod Dezvoltator” din setări pentru a adăuga sau edita conținut.
+              3. Activează „Mod Dezvoltator” din setări pentru a adăuga sau
+              edita conținut.
             </div>
           </div>
         )}
 
-        <div className="civica-tab-row" style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "12px", marginTop: "40px" }}>
-          {tabs.map((tab) => {
+        <div
+          className="civica-tab-row"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: "12px",
+            marginTop: "40px",
+          }}
+        >
+          {tabs.map((tab, tabIndex) => {
             const isActive = activeTab === tab;
+            const isTabDragging = draggingTabIndex === tabIndex;
             return (
-              <div key={tab} style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div
+                key={tab}
+                draggable={isDevMode}
+                onDragStart={(event) => handleTabDragStart(event, tabIndex)}
+                onDragEnd={handleTabDragEnd}
+                onDragOver={handleDragOver}
+                onDrop={(event) => handleTabDrop(event, tabIndex)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  alignItems: "center",
+                  opacity: isTabDragging ? 0.4 : 1,
+                  transition: "opacity 0.15s",
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -394,12 +574,18 @@ const HomeView = ({
                     style={{
                       padding: "12px 28px",
                       borderRadius: "30px",
-                      border: isActive ? `1px solid ${theme.accent}` : "1px solid transparent",
-                      backgroundColor: isActive ? theme.accent : theme.sectionBg,
+                      border: isActive
+                        ? `1px solid ${theme.accent}`
+                        : "1px solid transparent",
+                      backgroundColor: isActive
+                        ? theme.accent
+                        : theme.sectionBg,
                       color: isActive ? "#fff" : theme.textSecondary,
                       fontWeight: "700",
                       fontSize: "14px",
-                      boxShadow: isActive ? `0 4px 12px ${theme.accent}40` : "none",
+                      boxShadow: isActive
+                        ? `0 4px 12px ${theme.accent}40`
+                        : "none",
                       cursor: "pointer",
                       transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                     }}
@@ -430,11 +616,23 @@ const HomeView = ({
                   )}
                 </div>
                 {isDevMode && isActive && (
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "6px",
+                      alignItems: "center",
+                    }}
+                  >
                     <input
                       value={getTabLabel(tab, data)}
                       onChange={(e) => onUpdateTabLabel(tab, e.target.value)}
-                      style={{ ...inputStyle, width: "180px", textAlign: "center", fontSize: "12px", padding: "7px 10px" }}
+                      style={{
+                        ...inputStyle,
+                        width: "180px",
+                        textAlign: "center",
+                        fontSize: "12px",
+                        padding: "7px 10px",
+                      }}
                     />
                   </div>
                 )}
@@ -446,13 +644,24 @@ const HomeView = ({
         {isDevMode && (
           <form
             onSubmit={handleCreateTab}
-            style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap", marginTop: "18px" }}
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+              marginTop: "18px",
+            }}
           >
             <input
               value={newTabLabel}
               onChange={(e) => setNewTabLabel(e.target.value)}
               placeholder="Ex: Procesele afective"
-              style={{ ...inputStyle, width: "min(280px, 100%)", textAlign: "center", fontSize: "13px" }}
+              style={{
+                ...inputStyle,
+                width: "min(280px, 100%)",
+                textAlign: "center",
+                fontSize: "13px",
+              }}
             />
             <button
               type="submit"
@@ -461,7 +670,9 @@ const HomeView = ({
                 padding: "10px 16px",
                 border: "none",
                 borderRadius: "12px",
-                backgroundColor: newTabLabel.trim() ? theme.accent : theme.textSecondary,
+                backgroundColor: newTabLabel.trim()
+                  ? theme.accent
+                  : theme.textSecondary,
                 color: "#fff",
                 cursor: newTabLabel.trim() ? "pointer" : "not-allowed",
                 fontWeight: "800",
@@ -492,7 +703,15 @@ const HomeView = ({
         )}
 
         {hasQuery && (
-          <div className="civica-results" style={{ marginBottom: "20px", textAlign: "center", color: theme.textSecondary, fontSize: "14px" }}>
+          <div
+            className="civica-results"
+            style={{
+              marginBottom: "20px",
+              textAlign: "center",
+              color: theme.textSecondary,
+              fontSize: "14px",
+            }}
+          >
             {totalMatches > 0
               ? `Afișăm ${totalMatches} repere care se potrivesc cu filtrul tău.`
               : "Nu am găsit încă rezultate pentru acest filtru."}
@@ -511,7 +730,14 @@ const HomeView = ({
               color: theme.textSecondary,
             }}
           >
-            <div style={{ fontSize: "18px", fontWeight: "700", color: theme.textPrimary, marginBottom: "8px" }}>
+            <div
+              style={{
+                fontSize: "18px",
+                fontWeight: "700",
+                color: theme.textPrimary,
+                marginBottom: "8px",
+              }}
+            >
               {hasQuery ? "Niciun rezultat" : "Nu există conținut încă"}
             </div>
             <div style={{ fontSize: "14px", lineHeight: "1.6" }}>
@@ -534,25 +760,51 @@ const HomeView = ({
               onDragEnd={handleDragEnd}
               onDragOver={handleDragOver}
               onDrop={(event) => handleDrop(event, sectionIndex)}
-              style={{ opacity: isDragging ? 0.4 : 1, transition: "opacity 0.2s" }}
+              style={{
+                opacity: isDragging ? 0.4 : 1,
+                transition: "opacity 0.2s",
+              }}
             >
               <AccordionItem
                 section={section}
                 activeTab={activeTab}
                 isOpen={openSectionIndex === sectionIndex}
-                onClick={() => setOpenSectionIndex(openSectionIndex === sectionIndex ? null : sectionIndex)}
+                onClick={() =>
+                  setOpenSectionIndex(
+                    openSectionIndex === sectionIndex ? null : sectionIndex,
+                  )
+                }
                 canEdit={isDevMode}
                 canDelete={isDevMode}
-                onUpdateItem={(cardId, updatedData) => onUpdateCard(activeTab, sectionIndex, cardId, updatedData)}
-                onDeleteItem={(cardId) => onDeleteCard(activeTab, sectionIndex, cardId)}
-                onUpdateSection={(updatedSection) => onUpdateSection(activeTab, sectionIndex, updatedSection)}
+                onUpdateItem={(cardId, updatedData) =>
+                  onUpdateCard(activeTab, sectionIndex, cardId, updatedData)
+                }
+                onDeleteItem={(cardId) =>
+                  onDeleteCard(activeTab, sectionIndex, cardId)
+                }
+                onUpdateSection={(updatedSection) =>
+                  onUpdateSection(activeTab, sectionIndex, updatedSection)
+                }
                 onDeleteSection={() => onDeleteSection(activeTab, section.id)}
                 extraItem={
-                  isDevMode
-                    ? sectionContentType === "media"
-                      ? <UploadCard onUpload={(file) => onUploadMedia(file, activeTab, sectionIndex)} />
-                      : <GenericAddCard onClick={() => onAddCard(activeTab, sectionIndex)} label={sectionContentType === "quiz" ? "Adaugă întrebare" : "Adaugă card"} />
-                    : null
+                  isDevMode ? (
+                    sectionContentType === "media" ? (
+                      <UploadCard
+                        onUpload={(file) =>
+                          onUploadMedia(file, activeTab, sectionIndex)
+                        }
+                      />
+                    ) : (
+                      <GenericAddCard
+                        onClick={() => onAddCard(activeTab, sectionIndex)}
+                        label={
+                          sectionContentType === "quiz"
+                            ? "Adaugă întrebare"
+                            : "Adaugă card"
+                        }
+                      />
+                    )
+                  ) : null
                 }
                 onReadMore={(cardId) => onNavigateToDetails(cardId)}
                 theme={theme}
@@ -589,7 +841,9 @@ const HomeView = ({
                 padding: "11px 18px",
                 border: "none",
                 borderRadius: "12px",
-                backgroundColor: newSectionTitle.trim() ? theme.accent : theme.textSecondary,
+                backgroundColor: newSectionTitle.trim()
+                  ? theme.accent
+                  : theme.textSecondary,
                 color: "#fff",
                 cursor: newSectionTitle.trim() ? "pointer" : "not-allowed",
                 fontWeight: "800",

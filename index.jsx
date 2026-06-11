@@ -4,7 +4,12 @@ import { createRoot } from "react-dom/client";
 import { THEMES, ACCENTS } from "./themes.js";
 import { INITIAL_DATA } from "./data/initialData.js";
 import { generateId, getSectionContentType, getTabs } from "./utils.js";
-import { getRemoteAppData, isSupabaseConfigured, saveRemoteAppData, uploadToStorage } from "./supabase.js";
+import {
+  getRemoteAppData,
+  isSupabaseConfigured,
+  saveRemoteAppData,
+  uploadToStorage,
+} from "./supabase.js";
 
 import GlobalBackground from "./components/GlobalBackground.jsx";
 import NavBar from "./components/NavBar.jsx";
@@ -31,7 +36,7 @@ function App() {
       return 0;
     }
   });
-  
+
   const [appData, setAppData] = useState(() => {
     try {
       const saved = localStorage.getItem("civicaAppData");
@@ -44,7 +49,7 @@ function App() {
   });
 
   const [scrollTarget, setScrollTarget] = useState(null);
-  
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try {
       return localStorage.getItem("civicaThemeMode") === "dark";
@@ -92,23 +97,33 @@ function App() {
   const isApplyingRemoteRef = useRef(false);
   const saveTimeoutRef = useRef(null);
   const pendingAssetUploadsRef = useRef(new Set());
-  const bibliographyItems = Array.isArray(appData.Bibliografie) ? appData.Bibliografie : [];
-  
+  const bibliographyItems = Array.isArray(appData.Bibliografie)
+    ? appData.Bibliografie
+    : [];
+
   const baseTheme = isDarkMode ? THEMES.dark : THEMES.light;
-  const accent = (ACCENTS[accentKey] && (isDarkMode ? ACCENTS[accentKey].dark : ACCENTS[accentKey].light)) || baseTheme.accent;
+  const accent =
+    (ACCENTS[accentKey] &&
+      (isDarkMode ? ACCENTS[accentKey].dark : ACCENTS[accentKey].light)) ||
+    baseTheme.accent;
   const theme = { ...baseTheme, accent };
   const makePersistableData = (data) => {
     const updatedAt = Date.now();
-    return { ...data, _meta: { ...(data && data._meta ? data._meta : {}), updatedAt } };
+    return {
+      ...data,
+      _meta: { ...(data && data._meta ? data._meta : {}), updatedAt },
+    };
   };
 
   const isStructuredAppData = (data) => {
-    return Boolean(data) && typeof data === "object" && (
-      Array.isArray(data.Politica) ||
-      Array.isArray(data.Drepturi) ||
-      Array.isArray(data.Bibliografie) ||
-      Array.isArray(data.Quiz) ||
-      Array.isArray(data.Media)
+    return (
+      Boolean(data) &&
+      typeof data === "object" &&
+      (Array.isArray(data.Politica) ||
+        Array.isArray(data.Drepturi) ||
+        Array.isArray(data.Bibliografie) ||
+        Array.isArray(data.Quiz) ||
+        Array.isArray(data.Media))
     );
   };
 
@@ -132,7 +147,9 @@ function App() {
 
   const loadBundledPresentationBackup = async () => {
     try {
-      const response = await fetch("/presentation-backup.json", { cache: "no-store" });
+      const response = await fetch("/presentation-backup.json", {
+        cache: "no-store",
+      });
       if (!response.ok) return null;
       const json = await response.json();
       return isStructuredAppData(json) ? json : null;
@@ -142,7 +159,10 @@ function App() {
   };
 
   const isLocalAsset = (value) => {
-    return typeof value === "string" && (value.startsWith("data:") || value.startsWith("blob:"));
+    return (
+      typeof value === "string" &&
+      (value.startsWith("data:") || value.startsWith("blob:"))
+    );
   };
 
   const getFileExtensionFromMime = (mimeType) => {
@@ -159,7 +179,14 @@ function App() {
     return uploadToStorage(path, blob, blob.type || undefined);
   };
 
-  const replaceAssetUrlInData = (data, cardId, field, nextUrl, localFlagField, tempFlagField) => {
+  const replaceAssetUrlInData = (
+    data,
+    cardId,
+    field,
+    nextUrl,
+    localFlagField,
+    tempFlagField,
+  ) => {
     let changed = false;
     const nextData = { ...data };
     Object.keys(nextData).forEach((tabKey) => {
@@ -231,7 +258,10 @@ function App() {
     if (value && typeof value === "object") {
       const next = {};
       for (const [key, val] of Object.entries(value)) {
-        if (typeof val === "string" && (val.startsWith("data:") || val.startsWith("blob:"))) {
+        if (
+          typeof val === "string" &&
+          (val.startsWith("data:") || val.startsWith("blob:"))
+        ) {
           // Keep local assets local only; remote state should only store durable URLs.
           next[key] = null;
           continue;
@@ -262,7 +292,10 @@ function App() {
         const bundledBackup = await loadBundledPresentationBackup();
         let bestLocalCandidate = appData;
         if (!hasLocalSavedDataRef.current && bundledBackup) {
-          bestLocalCandidate = pickMoreCompleteData(bestLocalCandidate, bundledBackup);
+          bestLocalCandidate = pickMoreCompleteData(
+            bestLocalCandidate,
+            bundledBackup,
+          );
         }
 
         const localUpdatedAt = bestLocalCandidate?._meta?.updatedAt || 0;
@@ -280,7 +313,9 @@ function App() {
               setAppData(bestLocalCandidate);
               isApplyingRemoteRef.current = false;
             }
-            const payload = sanitizeForCloud(makePersistableData(bestLocalCandidate));
+            const payload = sanitizeForCloud(
+              makePersistableData(bestLocalCandidate),
+            );
             await saveRemoteAppData(payload);
           } else {
             const remoteUpdatedAt = remotePayload?._meta?.updatedAt || 0;
@@ -288,7 +323,10 @@ function App() {
             const remoteSize = JSON.stringify(remotePayload || {}).length;
             if (remoteUpdatedAt > localUpdatedAt) {
               isApplyingRemoteRef.current = true;
-              const merged = mergeRemoteWithLocalAssets(remotePayload, bestLocalCandidate);
+              const merged = mergeRemoteWithLocalAssets(
+                remotePayload,
+                bestLocalCandidate,
+              );
               setAppData(merged);
               isApplyingRemoteRef.current = false;
             } else if (localUpdatedAt > remoteUpdatedAt) {
@@ -297,11 +335,16 @@ function App() {
                 setAppData(bestLocalCandidate);
                 isApplyingRemoteRef.current = false;
               }
-              const payload = sanitizeForCloud(makePersistableData(bestLocalCandidate));
+              const payload = sanitizeForCloud(
+                makePersistableData(bestLocalCandidate),
+              );
               await saveRemoteAppData(payload);
             } else if (remoteSize > localSize) {
               isApplyingRemoteRef.current = true;
-              const merged = mergeRemoteWithLocalAssets(remotePayload, bestLocalCandidate);
+              const merged = mergeRemoteWithLocalAssets(
+                remotePayload,
+                bestLocalCandidate,
+              );
               setAppData(merged);
               isApplyingRemoteRef.current = false;
             } else if (localSize > remoteSize) {
@@ -310,7 +353,9 @@ function App() {
                 setAppData(bestLocalCandidate);
                 isApplyingRemoteRef.current = false;
               }
-              const payload = sanitizeForCloud(makePersistableData(bestLocalCandidate));
+              const payload = sanitizeForCloud(
+                makePersistableData(bestLocalCandidate),
+              );
               await saveRemoteAppData(payload);
             } else if (bestLocalCandidate !== appData) {
               isApplyingRemoteRef.current = true;
@@ -326,7 +371,9 @@ function App() {
       }
     };
     migrate();
-    return () => { canceled = true; };
+    return () => {
+      canceled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -371,7 +418,7 @@ function App() {
               folder: "images",
               localFlagField: "isLocalImage",
               tempFlagField: "isTempImage",
-              assetUrl: item.image_url
+              assetUrl: item.image_url,
             });
           }
           if (isLocalAsset(item?.video_url)) {
@@ -381,32 +428,50 @@ function App() {
               folder: "videos",
               localFlagField: "isLocalVideo",
               tempFlagField: "isTempVideo",
-              assetUrl: item.video_url
+              assetUrl: item.video_url,
             });
           }
         });
       });
     });
 
-    localAssets.forEach(({ cardId, field, folder, localFlagField, tempFlagField, assetUrl }) => {
-      const uploadKey = `${cardId}:${field}`;
-      if (pendingAssetUploadsRef.current.has(uploadKey)) return;
-      pendingAssetUploadsRef.current.add(uploadKey);
+    localAssets.forEach(
+      ({ cardId, field, folder, localFlagField, tempFlagField, assetUrl }) => {
+        const uploadKey = `${cardId}:${field}`;
+        if (pendingAssetUploadsRef.current.has(uploadKey)) return;
+        pendingAssetUploadsRef.current.add(uploadKey);
 
-      uploadLocalAsset(assetUrl, folder, cardId)
-        .then((downloadUrl) => {
-          setAppData((prev) => replaceAssetUrlInData(prev, cardId, field, downloadUrl, localFlagField, tempFlagField));
-          if (typeof assetUrl === "string" && assetUrl.startsWith("blob:")) {
-            try { URL.revokeObjectURL(assetUrl); } catch (e) { /* no-op */ }
-          }
-        })
-        .catch((error) => {
-          console.error(`Failed to upload ${field} for card ${cardId}`, error);
-        })
-        .finally(() => {
-          pendingAssetUploadsRef.current.delete(uploadKey);
-        });
-    });
+        uploadLocalAsset(assetUrl, folder, cardId)
+          .then((downloadUrl) => {
+            setAppData((prev) =>
+              replaceAssetUrlInData(
+                prev,
+                cardId,
+                field,
+                downloadUrl,
+                localFlagField,
+                tempFlagField,
+              ),
+            );
+            if (typeof assetUrl === "string" && assetUrl.startsWith("blob:")) {
+              try {
+                URL.revokeObjectURL(assetUrl);
+              } catch (e) {
+                /* no-op */
+              }
+            }
+          })
+          .catch((error) => {
+            console.error(
+              `Failed to upload ${field} for card ${cardId}`,
+              error,
+            );
+          })
+          .finally(() => {
+            pendingAssetUploadsRef.current.delete(uploadKey);
+          });
+      },
+    );
   }, [appData, isCloudReady]);
 
   useEffect(() => {
@@ -419,7 +484,10 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem("civicaOpenSectionIndex", String(openSectionIndex ?? 0));
+      localStorage.setItem(
+        "civicaOpenSectionIndex",
+        String(openSectionIndex ?? 0),
+      );
     } catch (e) {
       console.error("Failed to save section preference", e);
     }
@@ -486,7 +554,23 @@ function App() {
       alert("Datele locale au fost trimise in cloud.");
     } catch (e) {
       console.error("Failed to force cloud sync", e);
-      alert("Trimiterea datelor in cloud a esuat. Pentru siguranta, pastreaza si backupul JSON local.");
+      alert(
+        "Trimiterea datelor in cloud a esuat. Pentru siguranta, pastreaza si backupul JSON local.",
+      );
+    }
+  };
+
+  const handleSaveProgress = async () => {
+    try {
+      await persistDataSnapshot(appData);
+      if (isSupabaseConfigured) {
+        alert("Progresul a fost salvat local și sincronizat cu Supabase.");
+      } else {
+        alert("Progresul a fost salvat local (Supabase neconfigurat).");
+      }
+    } catch (e) {
+      console.error("Failed to save progress", e);
+      alert("Salvarea progresului a eșuat. Verifică consola pentru erori.");
     }
   };
 
@@ -513,15 +597,15 @@ function App() {
       try {
         const json = JSON.parse(String(e.target?.result || ""));
         if (json.Politica || json.Drepturi) {
-            setAppData(json);
-            if (isSupabaseConfigured) {
-              await persistDataSnapshot(json);
-              alert("Date importate cu succes si sincronizate in Supabase.");
-            } else {
-              alert("Date importate cu succes!");
-            }
+          setAppData(json);
+          if (isSupabaseConfigured) {
+            await persistDataSnapshot(json);
+            alert("Date importate cu succes si sincronizate in Supabase.");
+          } else {
+            alert("Date importate cu succes!");
+          }
         } else {
-            alert("Format fișier invalid.");
+          alert("Format fișier invalid.");
         }
       } catch (err) {
         alert("Eroare la citirea fișierului.");
@@ -531,26 +615,36 @@ function App() {
   };
 
   const handleUpdateCard = (tabKey, sectionIndex, cardId, updatedCard) => {
-    setAppData(prev => {
+    setAppData((prev) => {
       const newData = { ...prev };
       const section = newData[tabKey][sectionIndex];
-      const cardIndex = section.items.findIndex(c => c.id === cardId);
-      if (cardIndex !== -1) { section.items[cardIndex] = updatedCard; }
+      const cardIndex = section.items.findIndex((c) => c.id === cardId);
+      if (cardIndex !== -1) {
+        section.items[cardIndex] = updatedCard;
+      }
       return newData;
     });
   };
 
   const handleDeleteCard = (tabKey, sectionIndex, cardId) => {
-    setAppData(prev => {
+    setAppData((prev) => {
       const newData = { ...prev };
       const section = newData[tabKey][sectionIndex];
       if (tabKey === "Media") {
-        const target = section.items.find(c => c.id === cardId);
-        if (target?.isTempVideo && typeof target.video_url === "string" && target.video_url.startsWith("blob:")) {
-          try { URL.revokeObjectURL(target.video_url); } catch (e) { /* no-op */ }
+        const target = section.items.find((c) => c.id === cardId);
+        if (
+          target?.isTempVideo &&
+          typeof target.video_url === "string" &&
+          target.video_url.startsWith("blob:")
+        ) {
+          try {
+            URL.revokeObjectURL(target.video_url);
+          } catch (e) {
+            /* no-op */
+          }
         }
       }
-      section.items = section.items.filter(c => c.id !== cardId);
+      section.items = section.items.filter((c) => c.id !== cardId);
       return newData;
     });
   };
@@ -563,7 +657,8 @@ function App() {
         type: "quiz",
         nume: "Întrebare Nouă",
         comentariu_filosofic: "...",
-        image_url: "https://images.unsplash.com/photo-1491841550275-ad7854e35ca6?auto=format&fit=crop&q=80&w=800",
+        image_url:
+          "https://images.unsplash.com/photo-1491841550275-ad7854e35ca6?auto=format&fit=crop&q=80&w=800",
         options: ["A", "B", "C", "D"],
         correctAnswer: 0,
       };
@@ -584,25 +679,34 @@ function App() {
       lucrare_relevanta: "Lucrare...",
       comentariu_filosofic: "Descriere...",
       detailed_text: "Scrie eseul...",
-      image_url: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&q=80&w=800",
+      image_url:
+        "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&q=80&w=800",
     };
   };
 
   const handleAddCard = (tabKey, sectionIndex) => {
-    setAppData(prev => {
+    setAppData((prev) => {
       const newData = { ...prev };
       if (!newData[tabKey] || !newData[tabKey][sectionIndex]) return prev;
       const section = newData[tabKey][sectionIndex];
-      const newCard = createCardForSection(getSectionContentType(section, tabKey));
+      const newCard = createCardForSection(
+        getSectionContentType(section, tabKey),
+      );
       section.items.push(newCard);
       return newData;
     });
   };
 
-  const handleUploadMedia = async (file, tabKey = "Media", sectionIndex = 0) => {
+  const handleUploadMedia = async (
+    file,
+    tabKey = "Media",
+    sectionIndex = 0,
+  ) => {
     if (!file) return;
     if (!isSupabaseConfigured) {
-      alert("Configureaza mai intai Supabase ca sa poti urca video-uri in cloud.");
+      alert(
+        "Configureaza mai intai Supabase ca sa poti urca video-uri in cloud.",
+      );
       return;
     }
     if (!String(file.type || "").startsWith("video/")) {
@@ -614,12 +718,19 @@ function App() {
       alert(`Fisierul are ${sizeMb} MB. Limita aplicatiei este 50 MB.`);
       return;
     }
-    const safeIndex = Number.isFinite(Number(sectionIndex)) ? Number(sectionIndex) : 0;
+    const safeIndex = Number.isFinite(Number(sectionIndex))
+      ? Number(sectionIndex)
+      : 0;
     const mediaCardId = generateId();
     const fileSizeMb = (file.size / (1024 * 1024)).toFixed(1);
-    setMediaUploadStatus(`Se incarca "${file.name}" (${fileSizeMb} MB) in cloud...`);
+    setMediaUploadStatus(
+      `Se incarca "${file.name}" (${fileSizeMb} MB) in cloud...`,
+    );
     try {
-      const safeFileName = String(file.name || "video.mp4").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const safeFileName = String(file.name || "video.mp4").replace(
+        /[^a-zA-Z0-9._-]/g,
+        "_",
+      );
       const downloadUrl = await uploadToStorage(
         `videos/${mediaCardId}-${Date.now()}-${safeFileName}`,
         file,
@@ -627,31 +738,70 @@ function App() {
         {
           onProgress: (bytesUploaded, bytesTotal) => {
             if (!bytesTotal) return;
-            const progress = Math.min(100, Math.round((bytesUploaded / bytesTotal) * 100));
-            setMediaUploadStatus(`Se incarca "${file.name}" (${fileSizeMb} MB)... ${progress}%`);
+            const progress = Math.min(
+              100,
+              Math.round((bytesUploaded / bytesTotal) * 100),
+            );
+            setMediaUploadStatus(
+              `Se incarca "${file.name}" (${fileSizeMb} MB)... ${progress}%`,
+            );
           },
-        }
+        },
       );
       const nextData = { ...appData };
-      if (!nextData[tabKey]) nextData[tabKey] = [{ id: generateId(), title: "Media", description: "", contentType: "media", items: [] }];
-      if (nextData[tabKey].length === 0) nextData[tabKey] = [{ id: generateId(), title: "Media", description: "", contentType: "media", items: [] }];
+      if (!nextData[tabKey])
+        nextData[tabKey] = [
+          {
+            id: generateId(),
+            title: "Media",
+            description: "",
+            contentType: "media",
+            items: [],
+          },
+        ];
+      if (nextData[tabKey].length === 0)
+        nextData[tabKey] = [
+          {
+            id: generateId(),
+            title: "Media",
+            description: "",
+            contentType: "media",
+            items: [],
+          },
+        ];
 
-      const targetIndex = Math.min(Math.max(safeIndex, 0), nextData[tabKey].length - 1);
-      const targetSection = nextData[tabKey][targetIndex] || { id: generateId(), title: "Media", description: "", contentType: "media", items: [] };
-      const nextItems = [...(targetSection.items || []), {
-        id: mediaCardId,
-        type: "media",
-        nume: file.name.replace(/\.[^/.]+$/, ""),
-        video_url: downloadUrl,
-        mime_type: file.type || "video/mp4",
-        original_file_name: file.name,
-        comentariu_filosofic: `Fisier: ${file.name}`,
-        isLocalVideo: false,
-        isTempVideo: false
-      }];
+      const targetIndex = Math.min(
+        Math.max(safeIndex, 0),
+        nextData[tabKey].length - 1,
+      );
+      const targetSection = nextData[tabKey][targetIndex] || {
+        id: generateId(),
+        title: "Media",
+        description: "",
+        contentType: "media",
+        items: [],
+      };
+      const nextItems = [
+        ...(targetSection.items || []),
+        {
+          id: mediaCardId,
+          type: "media",
+          nume: file.name.replace(/\.[^/.]+$/, ""),
+          video_url: downloadUrl,
+          mime_type: file.type || "video/mp4",
+          original_file_name: file.name,
+          comentariu_filosofic: `Fisier: ${file.name}`,
+          isLocalVideo: false,
+          isTempVideo: false,
+        },
+      ];
 
       nextData[tabKey] = [...nextData[tabKey]];
-      nextData[tabKey][targetIndex] = { ...targetSection, contentType: "media", items: nextItems };
+      nextData[tabKey][targetIndex] = {
+        ...targetSection,
+        contentType: "media",
+        items: nextItems,
+      };
 
       setAppData(nextData);
       await persistDataSnapshot(nextData);
@@ -659,20 +809,29 @@ function App() {
     } catch (err) {
       console.error("Failed to upload video to Supabase Storage", err);
       const errorMessage = err?.message || err?.code || "Eroare necunoscuta";
-      setMediaUploadStatus(`Eroare upload pentru ${file.name}: ${errorMessage}`);
-      alert(`Upload-ul video in cloud a esuat. Cardul nu a fost salvat.\n\nDetaliu: ${errorMessage}`);
+      setMediaUploadStatus(
+        `Eroare upload pentru ${file.name}: ${errorMessage}`,
+      );
+      alert(
+        `Upload-ul video in cloud a esuat. Cardul nu a fost salvat.\n\nDetaliu: ${errorMessage}`,
+      );
     }
   };
 
   const handleAddSection = (tabKey, title = "Categorie noua") => {
     const cleanTitle = String(title || "").trim() || "Categorie noua";
-    setAppData(prev => {
+    setAppData((prev) => {
       const nextSections = Array.isArray(prev[tabKey]) ? prev[tabKey] : [];
       const newSection = {
         id: generateId(),
         title: cleanTitle,
         description: "Adauga o descriere...",
-        contentType: tabKey === "Quiz" ? "quiz" : tabKey === "Media" ? "media" : "standard",
+        contentType:
+          tabKey === "Quiz"
+            ? "quiz"
+            : tabKey === "Media"
+              ? "media"
+              : "standard",
         items: [],
       };
       return { ...prev, [tabKey]: [...nextSections, newSection] };
@@ -680,38 +839,51 @@ function App() {
   };
 
   const handleAddBibliographyRow = () => {
-    setAppData(prev => {
+    setAppData((prev) => {
       const newData = { ...prev };
       if (!newData.Bibliografie) newData.Bibliografie = [];
-      newData.Bibliografie.push({ id: generateId(), resource: "", link: "", notes: "" });
+      newData.Bibliografie.push({
+        id: generateId(),
+        resource: "",
+        link: "",
+        notes: "",
+      });
       return newData;
     });
   };
 
   const handleUpdateBibliographyRow = (id, field, value) => {
-    setAppData(prev => {
+    setAppData((prev) => {
       const newData = { ...prev };
       if (!newData.Bibliografie) newData.Bibliografie = [];
-      newData.Bibliografie = newData.Bibliografie.map(item => item.id === id ? { ...item, [field]: value } : item);
+      newData.Bibliografie = newData.Bibliografie.map((item) =>
+        item.id === id ? { ...item, [field]: value } : item,
+      );
       return newData;
     });
   };
 
   const handleDeleteBibliographyRow = (id) => {
-    setAppData(prev => {
+    setAppData((prev) => {
       const newData = { ...prev };
       if (!newData.Bibliografie) return prev;
-      newData.Bibliografie = newData.Bibliografie.filter(item => item.id !== id);
+      newData.Bibliografie = newData.Bibliografie.filter(
+        (item) => item.id !== id,
+      );
       return newData;
     });
   };
 
   const handleUpdateSection = (tabKey, sectionIdx, updatedSection) => {
-    setAppData(prev => { const newData = { ...prev }; newData[tabKey][sectionIdx] = updatedSection; return newData; });
+    setAppData((prev) => {
+      const newData = { ...prev };
+      newData[tabKey][sectionIdx] = updatedSection;
+      return newData;
+    });
   };
 
   const handleUpdateAppSettings = (partialSettings) => {
-    setAppData(prev => ({
+    setAppData((prev) => ({
       ...prev,
       _settings: {
         ...(prev._settings || {}),
@@ -721,7 +893,7 @@ function App() {
   };
 
   const handleUpdateTabLabel = (tabKey, label) => {
-    setAppData(prev => ({
+    setAppData((prev) => ({
       ...prev,
       _settings: {
         ...(prev._settings || {}),
@@ -738,7 +910,7 @@ function App() {
     if (!cleanLabel) return;
 
     const tabKey = `tab-${generateId()}`;
-    setAppData(prev => {
+    setAppData((prev) => {
       const tabs = getTabs(prev);
       return {
         ...prev,
@@ -763,10 +935,16 @@ function App() {
       alert("Pastreaza cel putin o categorie principala.");
       return;
     }
-    if (!window.confirm("Stergi aceasta categorie principala si tot continutul ei?")) return;
+    if (
+      !window.confirm(
+        "Stergi aceasta categorie principala si tot continutul ei?",
+      )
+    )
+      return;
 
-    const nextActiveTab = activeTab === tabKey ? tabs.find((tab) => tab !== tabKey) : activeTab;
-    setAppData(prev => {
+    const nextActiveTab =
+      activeTab === tabKey ? tabs.find((tab) => tab !== tabKey) : activeTab;
+    setAppData((prev) => {
       const nextData = { ...prev };
       const nextTabs = getTabs(prev).filter((tab) => tab !== tabKey);
       const nextTabLabels = { ...(prev._settings?.tabLabels || {}) };
@@ -784,31 +962,36 @@ function App() {
   };
 
   const handleDeleteSection = (tabKey, sectionId) => {
-    if(!window.confirm("Stergi aceasta sectiune si tot continutul ei?")) return;
+    if (!window.confirm("Stergi aceasta sectiune si tot continutul ei?"))
+      return;
 
-    setAppData(prev => {
-        const newData = { ...prev };
-        if (newData[tabKey]) {
-            const deletedIndex = newData[tabKey].findIndex((s) => s.id === sectionId);
-            newData[tabKey] = newData[tabKey].filter((s) => s.id !== sectionId);
-            if (deletedIndex !== -1) {
-              setOpenSectionIndex((current) => {
-                if (current === null) return current;
-                if (current === deletedIndex) return Math.max(0, deletedIndex - 1);
-                if (current > deletedIndex) return current - 1;
-                return current;
-              });
-            }
+    setAppData((prev) => {
+      const newData = { ...prev };
+      if (newData[tabKey]) {
+        const deletedIndex = newData[tabKey].findIndex(
+          (s) => s.id === sectionId,
+        );
+        newData[tabKey] = newData[tabKey].filter((s) => s.id !== sectionId);
+        if (deletedIndex !== -1) {
+          setOpenSectionIndex((current) => {
+            if (current === null) return current;
+            if (current === deletedIndex) return Math.max(0, deletedIndex - 1);
+            if (current > deletedIndex) return current - 1;
+            return current;
+          });
         }
-        return newData;
+      }
+      return newData;
     });
   };
 
   const handleReorderSection = (tabKey, sourceIndex, targetIndex) => {
     if (sourceIndex === targetIndex) return;
-    setAppData(prev => {
+    setAppData((prev) => {
       const nextData = { ...prev };
-      const sections = Array.isArray(nextData[tabKey]) ? [...nextData[tabKey]] : [];
+      const sections = Array.isArray(nextData[tabKey])
+        ? [...nextData[tabKey]]
+        : [];
       if (sourceIndex < 0 || sourceIndex >= sections.length) return prev;
       if (targetIndex < 0 || targetIndex >= sections.length) return prev;
       const [movedSection] = sections.splice(sourceIndex, 1);
@@ -819,13 +1002,51 @@ function App() {
     setOpenSectionIndex((current) => {
       if (current === null) return current;
       if (current === sourceIndex) return targetIndex;
-      if (sourceIndex < targetIndex && current > sourceIndex && current <= targetIndex) return current - 1;
-      if (sourceIndex > targetIndex && current >= targetIndex && current < sourceIndex) return current + 1;
+      if (
+        sourceIndex < targetIndex &&
+        current > sourceIndex &&
+        current <= targetIndex
+      )
+        return current - 1;
+      if (
+        sourceIndex > targetIndex &&
+        current >= targetIndex &&
+        current < sourceIndex
+      )
+        return current + 1;
       return current;
     });
   };
 
-  const navigateToDetails = (targetId) => { setScrollTarget(targetId); setCurrentView("details"); };
+  const handleReorderTab = (sourceIndex, targetIndex) => {
+    if (sourceIndex === targetIndex) return;
+    setAppData((prev) => {
+      const nextData = { ...prev };
+      const currentOrder =
+        nextData._settings && Array.isArray(nextData._settings.tabOrder)
+          ? [...nextData._settings.tabOrder]
+          : getTabs(prev);
+      if (sourceIndex < 0 || sourceIndex >= currentOrder.length) return prev;
+      if (targetIndex < 0 || targetIndex >= currentOrder.length) return prev;
+      const [moved] = currentOrder.splice(sourceIndex, 1);
+      currentOrder.splice(targetIndex, 0, moved);
+      nextData._settings = {
+        ...(nextData._settings || {}),
+        tabOrder: currentOrder,
+      };
+      return nextData;
+    });
+
+    // If the active tab was moved, keep it active; otherwise leave activeTab unchanged
+    setActiveTab((current) => {
+      return current;
+    });
+  };
+
+  const navigateToDetails = (targetId) => {
+    setScrollTarget(targetId);
+    setCurrentView("details");
+  };
   const handleDismissOnboarding = () => {
     setShowOnboarding(false);
     try {
@@ -836,20 +1057,33 @@ function App() {
   };
 
   return (
-    <div style={{ fontFamily: "'Manrope', sans-serif", minHeight: "100vh", position: "relative", color: theme.textPrimary, paddingBottom: "40px" }}>
+    <div
+      style={{
+        fontFamily: "'Manrope', sans-serif",
+        minHeight: "100vh",
+        position: "relative",
+        color: theme.textPrimary,
+        paddingBottom: "40px",
+      }}
+    >
       <GlobalBackground theme={theme} />
-      <NavBar 
-        currentView={currentView} onViewChange={setCurrentView} 
-        isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} 
-        isDevMode={isDevMode} setIsDevMode={setIsDevMode}
-        accentKey={accentKey} setAccentKey={setAccentKey}
+      <NavBar
+        currentView={currentView}
+        onViewChange={setCurrentView}
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        isDevMode={isDevMode}
+        setIsDevMode={setIsDevMode}
+        accentKey={accentKey}
+        setAccentKey={setAccentKey}
         theme={theme}
         appData={appData}
         setAppData={setAppData}
         activeTab={activeTab}
         openSectionIndex={openSectionIndex}
         setOpenSectionIndex={setOpenSectionIndex}
-        searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
         onExport={handleExportData}
         onImport={handleImportData}
         onRestoreLocalAssets={handleRestoreLocalAssets}
@@ -987,21 +1221,33 @@ function App() {
           .civica-empty { padding: 20px !important; }
         }
       `}</style>
-      
+
       {currentView === "home" && (
-        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 20px" }}>
-          <HomeView 
-            data={appData} 
-            activeTab={activeTab} setActiveTab={setActiveTab}
-            openSectionIndex={openSectionIndex} setOpenSectionIndex={setOpenSectionIndex}
-            onUpdateCard={handleUpdateCard} onDeleteCard={handleDeleteCard} onAddCard={handleAddCard} onUploadMedia={handleUploadMedia}
-            onNavigateToDetails={navigateToDetails} onAddSection={handleAddSection} onUpdateSection={handleUpdateSection} onDeleteSection={handleDeleteSection}
+        <div
+          style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 20px" }}
+        >
+          <HomeView
+            data={appData}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            openSectionIndex={openSectionIndex}
+            setOpenSectionIndex={setOpenSectionIndex}
+            onUpdateCard={handleUpdateCard}
+            onDeleteCard={handleDeleteCard}
+            onAddCard={handleAddCard}
+            onUploadMedia={handleUploadMedia}
+            onNavigateToDetails={navigateToDetails}
+            onAddSection={handleAddSection}
+            onUpdateSection={handleUpdateSection}
+            onDeleteSection={handleDeleteSection}
             onReorderSection={handleReorderSection}
+            onReorderTab={handleReorderTab}
             onUpdateAppSettings={handleUpdateAppSettings}
             onUpdateTabLabel={handleUpdateTabLabel}
             onAddTab={handleAddTab}
             onDeleteTab={handleDeleteTab}
-            theme={theme} isDevMode={isDevMode}
+            theme={theme}
+            isDevMode={isDevMode}
             searchQuery={searchQuery}
             showOnboarding={showOnboarding}
             onDismissOnboarding={handleDismissOnboarding}
@@ -1009,15 +1255,25 @@ function App() {
           />
         </div>
       )}
-      {currentView === "details" && <DetailsView data={appData} scrollTarget={scrollTarget} onUpdateCard={handleUpdateCard} theme={theme} isDevMode={isDevMode} />}
-      {currentView === "bibliography" && <BibliographyView
-        theme={theme}
-        isDevMode={isDevMode}
-        items={bibliographyItems}
-        onAddRow={handleAddBibliographyRow}
-        onUpdateRow={handleUpdateBibliographyRow}
-        onDeleteRow={handleDeleteBibliographyRow}
-      />}
+      {currentView === "details" && (
+        <DetailsView
+          data={appData}
+          scrollTarget={scrollTarget}
+          onUpdateCard={handleUpdateCard}
+          theme={theme}
+          isDevMode={isDevMode}
+        />
+      )}
+      {currentView === "bibliography" && (
+        <BibliographyView
+          theme={theme}
+          isDevMode={isDevMode}
+          items={bibliographyItems}
+          onAddRow={handleAddBibliographyRow}
+          onUpdateRow={handleUpdateBibliographyRow}
+          onDeleteRow={handleDeleteBibliographyRow}
+        />
+      )}
     </div>
   );
 }

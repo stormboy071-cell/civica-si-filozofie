@@ -16,7 +16,8 @@ if (fs.existsSync(envPath)) {
 }
 
 const supabaseUrl = envVars.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = envVars.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseAnonKey =
+  envVars.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error("❌ Supabase credentials not found in .env.local");
@@ -30,7 +31,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 const restoreData = async () => {
   try {
     console.log("📡 Fetching complete data from Supabase...");
-    
+
     // Get the stored data
     const { data, error } = await supabase
       .from("app_state")
@@ -45,24 +46,24 @@ const restoreData = async () => {
 
     // Save to local backup
     console.log("💾 Saving to local presentation-backup.json...");
-    
+
     const outputPath = "public/presentation-backup.json";
     fs.writeFileSync(outputPath, JSON.stringify(payload, null, 2));
-    
+
     console.log("✅ Data restored successfully!");
     console.log(`📁 File saved to: ${outputPath}`);
-    
+
     // Show statistics
-    const tabs = Object.keys(payload).filter(k => !k.startsWith("_"));
+    const tabs = Object.keys(payload).filter((k) => !k.startsWith("_"));
     let totalItems = 0;
     let totalImages = 0;
 
-    tabs.forEach(tab => {
+    tabs.forEach((tab) => {
       if (Array.isArray(payload[tab])) {
-        payload[tab].forEach(section => {
+        payload[tab].forEach((section) => {
           if (section.items && Array.isArray(section.items)) {
             totalItems += section.items.length;
-            section.items.forEach(item => {
+            section.items.forEach((item) => {
               if (item.image_url) totalImages++;
             });
           }
@@ -75,7 +76,6 @@ const restoreData = async () => {
     console.log(`  • Total items: ${totalItems}`);
     console.log(`  • Items with images: ${totalImages}`);
     console.log(`  • Sections: ${Object.values(payload).flat().length}`);
-
   } catch (error) {
     console.error("❌ Error restoring data:", error.message);
     process.exit(1);

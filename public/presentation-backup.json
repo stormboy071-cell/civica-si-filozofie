@@ -115,14 +115,6 @@
       "_originalIndex": 0
     }
   ],
-  "Media": [
-    {
-      "id": "id-mn6iaxbv-xw2v0nkj8",
-      "items": [],
-      "title": "Categorie Nouă",
-      "description": "Adaugă o descriere..."
-    }
-  ],
   "_meta": {
     "updatedAt": 1781174912805
   },
@@ -151,13 +143,17 @@
   "_settings": {
     "heroTitle": "Clasificarea proceselor afective ",
     "tabLabels": {
-      "Media": "",
       "Drepturi": "Media",
-      "Psihologie": "Procesele Afective - Emoții și Sentimente"
+      "Psihologie": "Procesele Afective "
     },
     "filterNote": "Realizat de Prof. Monica Blaga ",
     "heroKicker": "Atlas educațional",
-    "heroSubtitle": "Liceul Greco-Catolic \"Iuliu Maniu\""
+    "heroSubtitle": "Liceul Greco-Catolic \"Iuliu Maniu\"",
+    "tabOrder": [
+      "Drepturi",
+      "Quiz",
+      "Psihologie"
+    ]
   },
   "Psihologie": [
     {
