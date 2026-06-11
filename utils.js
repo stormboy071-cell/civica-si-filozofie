@@ -14,10 +14,12 @@ export const DEFAULT_TAB_LABELS = {
 };
 
 export const DEFAULT_APP_SETTINGS = {
-  heroKicker: "Repere de gândire civică",
+  heroKicker: "Psihologie",
   heroTitle: "Politica, o temă de eternă actualitate...",
-  heroSubtitle: "Explorează conceptele esențiale și deschide „Vezi detalii” pentru a citi și edita documentația extinsă pentru fiecare filosof.",
-  filterNote: "Folosește filtrul din bara de sus ca să restrângi rapid lista curentă după concepte, autori sau lucrări.",
+  heroSubtitle:
+    "Explorează conceptele esențiale și deschide „Vezi detalii” pentru a citi și edita documentația extinsă pentru fiecare filosof.",
+  filterNote:
+    "Folosește filtrul din bara de sus ca să restrângi rapid lista curentă după concepte, autori sau lucrări.",
   tabLabels: DEFAULT_TAB_LABELS,
 };
 
@@ -30,16 +32,25 @@ export const getAppSettings = (data) => ({
   },
 });
 
-export const getTabLabel = (tab, data) => getAppSettings(data).tabLabels[tab] ?? tab;
+export const getTabLabel = (tab, data) =>
+  getAppSettings(data).tabLabels[tab] ?? tab;
 
 export const getTabs = (data) => {
   const savedTabs = data?._settings?.tabOrder;
-  const orderedTabs = Array.isArray(savedTabs) && savedTabs.length > 0 ? savedTabs : TABS;
-  const knownTabs = new Set([...TABS, ...Object.keys(data || {}).filter((key) => Array.isArray(data?.[key]))]);
+  const orderedTabs =
+    Array.isArray(savedTabs) && savedTabs.length > 0 ? savedTabs : TABS;
+  const knownTabs = new Set([
+    ...TABS,
+    ...Object.keys(data || {}).filter((key) => Array.isArray(data?.[key])),
+  ]);
   const tabs = orderedTabs.filter((tab) => knownTabs.has(tab));
 
   Object.keys(data || {}).forEach((key) => {
-    if (Array.isArray(data[key]) && !tabs.includes(key) && key !== "Bibliografie") {
+    if (
+      Array.isArray(data[key]) &&
+      !tabs.includes(key) &&
+      key !== "Bibliografie"
+    ) {
       tabs.push(key);
     }
   });
@@ -74,5 +85,10 @@ export const slugify = (text) => {
 };
 
 export const generateId = () => {
-  return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).substr(2, 9);
+  return (
+    "id-" +
+    Date.now().toString(36) +
+    "-" +
+    Math.random().toString(36).substr(2, 9)
+  );
 };

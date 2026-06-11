@@ -16,6 +16,7 @@ const HomeView = ({
   onAddSection,
   onUpdateSection,
   onDeleteSection,
+  onReorderSection,
   onUpdateAppSettings,
   onUpdateTabLabel,
   onAddTab,
@@ -178,6 +179,8 @@ const HomeView = ({
     : currentSections.map((section, sIdx) => ({ ...section, _originalIndex: sIdx }));
 
   const totalMatches = displaySections.reduce((sum, section) => sum + (section.items?.length || 0), 0);
+  const [draggingIndex, setDraggingIndex] = useState(null);
+
   const handleCreateSection = (event) => {
     event.preventDefault();
     const cleanTitle = newSectionTitle.trim();
@@ -185,6 +188,34 @@ const HomeView = ({
     onAddSection(activeTab, cleanTitle);
     setOpenSectionIndex(currentSections.length);
     setNewSectionTitle("");
+  };
+
+  const handleDragStart = (event, sectionIndex) => {
+    if (!isDevMode) return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(sectionIndex));
+    setDraggingIndex(sectionIndex);
+  };
+
+  const handleDragEnd = (event) => {
+    setDraggingIndex(null);
+    event.currentTarget.style.opacity = "";
+  };
+
+  const handleDragOver = (event) => {
+    if (!isDevMode) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (event, targetIndex) => {
+    if (!isDevMode) return;
+    event.preventDefault();
+    const sourceIndex = Number(event.dataTransfer.getData("text/plain"));
+    if (!Number.isFinite(sourceIndex)) return;
+    if (sourceIndex === targetIndex) return;
+    onReorderSection(activeTab, sourceIndex, targetIndex);
+    setDraggingIndex(null);
   };
   const handleCreateTab = (event) => {
     event.preventDefault();
@@ -494,29 +525,39 @@ const HomeView = ({
         {displaySections.map((section) => {
           const sectionIndex = section._originalIndex ?? 0;
           const sectionContentType = getSectionContentType(section, activeTab);
+          const isDragging = draggingIndex === sectionIndex;
           return (
-            <AccordionItem
+            <div
               key={section.id}
-              section={section}
-              activeTab={activeTab}
-              isOpen={openSectionIndex === sectionIndex}
-              onClick={() => setOpenSectionIndex(openSectionIndex === sectionIndex ? null : sectionIndex)}
-              canEdit={isDevMode}
-              canDelete={isDevMode}
-              onUpdateItem={(cardId, updatedData) => onUpdateCard(activeTab, sectionIndex, cardId, updatedData)}
-              onDeleteItem={(cardId) => onDeleteCard(activeTab, sectionIndex, cardId)}
-              onUpdateSection={(updatedSection) => onUpdateSection(activeTab, sectionIndex, updatedSection)}
-              onDeleteSection={() => onDeleteSection(activeTab, section.id)}
-              extraItem={
-                isDevMode
-                  ? sectionContentType === "media"
-                    ? <UploadCard onUpload={(file) => onUploadMedia(file, activeTab, sectionIndex)} />
-                    : <GenericAddCard onClick={() => onAddCard(activeTab, sectionIndex)} label={sectionContentType === "quiz" ? "Adaugă întrebare" : "Adaugă card"} />
-                  : null
-              }
-              onReadMore={(cardId) => onNavigateToDetails(cardId)}
-              theme={theme}
-            />
+              draggable={isDevMode}
+              onDragStart={(event) => handleDragStart(event, sectionIndex)}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDrop={(event) => handleDrop(event, sectionIndex)}
+              style={{ opacity: isDragging ? 0.4 : 1, transition: "opacity 0.2s" }}
+            >
+              <AccordionItem
+                section={section}
+                activeTab={activeTab}
+                isOpen={openSectionIndex === sectionIndex}
+                onClick={() => setOpenSectionIndex(openSectionIndex === sectionIndex ? null : sectionIndex)}
+                canEdit={isDevMode}
+                canDelete={isDevMode}
+                onUpdateItem={(cardId, updatedData) => onUpdateCard(activeTab, sectionIndex, cardId, updatedData)}
+                onDeleteItem={(cardId) => onDeleteCard(activeTab, sectionIndex, cardId)}
+                onUpdateSection={(updatedSection) => onUpdateSection(activeTab, sectionIndex, updatedSection)}
+                onDeleteSection={() => onDeleteSection(activeTab, section.id)}
+                extraItem={
+                  isDevMode
+                    ? sectionContentType === "media"
+                      ? <UploadCard onUpload={(file) => onUploadMedia(file, activeTab, sectionIndex)} />
+                      : <GenericAddCard onClick={() => onAddCard(activeTab, sectionIndex)} label={sectionContentType === "quiz" ? "Adaugă întrebare" : "Adaugă card"} />
+                    : null
+                }
+                onReadMore={(cardId) => onNavigateToDetails(cardId)}
+                theme={theme}
+              />
+            </div>
           );
         })}
 

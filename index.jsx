@@ -785,9 +785,9 @@ function App() {
 
   const handleDeleteSection = (tabKey, sectionId) => {
     if(!window.confirm("Stergi aceasta sectiune si tot continutul ei?")) return;
-    
-    setAppData(prev => { 
-        const newData = { ...prev }; 
+
+    setAppData(prev => {
+        const newData = { ...prev };
         if (newData[tabKey]) {
             const deletedIndex = newData[tabKey].findIndex((s) => s.id === sectionId);
             newData[tabKey] = newData[tabKey].filter((s) => s.id !== sectionId);
@@ -800,7 +800,28 @@ function App() {
               });
             }
         }
-        return newData; 
+        return newData;
+    });
+  };
+
+  const handleReorderSection = (tabKey, sourceIndex, targetIndex) => {
+    if (sourceIndex === targetIndex) return;
+    setAppData(prev => {
+      const nextData = { ...prev };
+      const sections = Array.isArray(nextData[tabKey]) ? [...nextData[tabKey]] : [];
+      if (sourceIndex < 0 || sourceIndex >= sections.length) return prev;
+      if (targetIndex < 0 || targetIndex >= sections.length) return prev;
+      const [movedSection] = sections.splice(sourceIndex, 1);
+      sections.splice(targetIndex, 0, movedSection);
+      nextData[tabKey] = sections;
+      return nextData;
+    });
+    setOpenSectionIndex((current) => {
+      if (current === null) return current;
+      if (current === sourceIndex) return targetIndex;
+      if (sourceIndex < targetIndex && current > sourceIndex && current <= targetIndex) return current - 1;
+      if (sourceIndex > targetIndex && current >= targetIndex && current < sourceIndex) return current + 1;
+      return current;
     });
   };
 
@@ -824,6 +845,7 @@ function App() {
         accentKey={accentKey} setAccentKey={setAccentKey}
         theme={theme}
         appData={appData}
+        setAppData={setAppData}
         activeTab={activeTab}
         openSectionIndex={openSectionIndex}
         setOpenSectionIndex={setOpenSectionIndex}
@@ -974,6 +996,7 @@ function App() {
             openSectionIndex={openSectionIndex} setOpenSectionIndex={setOpenSectionIndex}
             onUpdateCard={handleUpdateCard} onDeleteCard={handleDeleteCard} onAddCard={handleAddCard} onUploadMedia={handleUploadMedia}
             onNavigateToDetails={navigateToDetails} onAddSection={handleAddSection} onUpdateSection={handleUpdateSection} onDeleteSection={handleDeleteSection}
+            onReorderSection={handleReorderSection}
             onUpdateAppSettings={handleUpdateAppSettings}
             onUpdateTabLabel={handleUpdateTabLabel}
             onAddTab={handleAddTab}
