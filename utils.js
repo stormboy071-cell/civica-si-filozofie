@@ -18,6 +18,7 @@ export const DEFAULT_APP_SETTINGS = {
   heroTitle: "Politica, o temă de eternă actualitate...",
   heroSubtitle:
     "Explorează conceptele esențiale și deschide „Vezi detalii” pentru a citi și edita documentația extinsă pentru fiecare filosof.",
+  documentationTitle: "Documenta\u021bie filosofic\u0103",
   filterNote:
     "Folosește filtrul din bara de sus ca să restrângi rapid lista curentă după concepte, autori sau lucrări.",
   tabLabels: DEFAULT_TAB_LABELS,

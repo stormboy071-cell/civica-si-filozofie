@@ -1260,6 +1260,7 @@ function App() {
           data={appData}
           scrollTarget={scrollTarget}
           onUpdateCard={handleUpdateCard}
+          onUpdateAppSettings={handleUpdateAppSettings}
           theme={theme}
           isDevMode={isDevMode}
         />

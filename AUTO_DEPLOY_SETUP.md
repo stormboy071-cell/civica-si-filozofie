@@ -1,15 +1,33 @@
 # Auto Deploy Setup
 
-This project is now prepared for automatic deploys with GitHub Actions and Firebase Hosting.
+This project is now prepared for automatic deploys with GitHub Actions, GitHub Pages, and Firebase Hosting.
 
 ## What happens after setup
 
-- every push to `main` deploys the live website
+- every push to `main` deploys the live website to GitHub Pages
+- every push to `main` can also deploy to Firebase Hosting if the Firebase secret is configured
 - every pull request gets a temporary preview link
 
-## One-time setup you still need to do
+## GitHub Pages setup
 
-The workflows are already in the repo, but GitHub still needs permission to deploy to your Firebase project.
+The GitHub Pages workflow is already in:
+
+` .github/workflows/deploy-github-pages.yml`
+
+One-time GitHub setting:
+
+1. Open your GitHub repository.
+2. Go to `Settings -> Pages`.
+3. Under `Build and deployment`, set `Source` to `GitHub Actions`.
+4. Push to `main`.
+
+Your GitHub Pages URL should be:
+
+`https://stormboy071-cell.github.io/civica-si-filozofie/`
+
+## Firebase setup
+
+The Firebase workflows are already in the repo, but GitHub still needs permission to deploy to your Firebase project.
 
 ### Option A: easiest official setup
 
@@ -42,10 +60,12 @@ If you use this command, Firebase may create its own workflow files. You can kee
 
 After that, every push to `main` should deploy automatically.
 
-## Files added for auto deploy
+## Files used for auto deploy
 
+- `.github/workflows/deploy-github-pages.yml`
 - `.github/workflows/deploy-live.yml`
 - `.github/workflows/deploy-preview.yml`
+- `vite.config.js`
 
 ## How to use it
 
@@ -55,7 +75,9 @@ git commit -m "Set up auto deploy"
 git push origin main
 ```
 
-If the secret is configured, GitHub Actions will build the app and publish it to Firebase Hosting automatically.
+GitHub Actions will build the app and publish it to GitHub Pages automatically.
+
+If the Firebase secret is configured, GitHub Actions will also publish it to Firebase Hosting automatically.
 
 ## Official references
 
